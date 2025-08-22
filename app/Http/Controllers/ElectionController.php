@@ -111,10 +111,56 @@ class ElectionController extends Controller
         ]);
 
         $logs = Session::get('logs', []);
-        $logs[] = "Node {$leader->id} (zxid={$leader->zxid}) Leader 掛掉，系統暫時沒有 Leader";
+        $logs[] = "Node {$leader->id} Leader 掛掉，開始重新選舉";
+
+        $epoch = now()->timestamp;
+        $nodes = Node::where('alive', true)->get();
+
+        // 每個節點先投自己
+        foreach ($nodes as $node) {
+            $node->update([
+                'epoch' => $epoch,
+                'vote_for' => $node->id,
+                'state' => 'looking',
+            ]);
+            $logs[] = "Node {$node->id} 變成 Looking，並投給自己 (zxid={$node->zxid})";
+        }
+
+        // 比大小：先比 zxid，再比 id
+        $winner = $nodes->sort(function ($a, $b) {
+            if ($a->zxid === $b->zxid) {
+                // 如果 zxid 相同，就比 id
+                return $b->id <=> $a->id;
+            }
+            // 否則比 zxid
+            return $b->zxid <=> $a->zxid;
+        })->first();
+
+        $logs[] = "📊 節點們比較：最高 zxid/id = Node {$winner->id}";
+
+        // 模擬「過半數投票集中」
+        foreach ($nodes as $node) {
+            if ($node->id != $winner->id) {
+                $logs[] = "Node {$node->id} 改投給 Node {$winner->id}";
+            }
+            $node->update([
+                'vote_for' => $winner->id,
+                'state' => $node->id == $winner->id ? 'leader' : 'follower',
+            ]);
+        }
+
+        $logs[] = "🏆 Node {$winner->id} 當選為 Leader";
+
         Session::put('logs', $logs);
 
-        return redirect()->route('nodes.index')->with('status', "Leader 已掛掉，等待重新選舉");
+        return redirect()->route('nodes.index')
+                         ->with('status', "Leader 已掛掉，系統重新選舉完成");
+
+//        $logs = Session::get('logs', []);
+//        $logs[] = "Node {$leader->id} (zxid={$leader->zxid}) Leader 掛掉，系統暫時沒有 Leader";
+//        Session::put('logs', $logs);
+//
+//        return redirect()->route('nodes.index')->with('status', "Leader 已掛掉，等待重新選舉");
     }
 
 }

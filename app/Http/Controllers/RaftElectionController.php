@@ -112,7 +112,7 @@ class RaftElectionController extends Controller
 
         if (!$leader) {
             return redirect()->route('raft.nodes.index')
-                             ->with('status', "⚠️ 系統目前沒有 Leader");
+                             ->with('status', "系統目前沒有 Leader");
         }
 
         // 標記 Leader 掛掉
