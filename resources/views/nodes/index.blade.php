@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>ZooKeeper 選舉模擬</title>
+    <title>ZooKeeper Leader Election</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-100 text-gray-900">
 
 <h1 class="text-2xl font-bold mb-4">ZooKeeper Leader Election 模擬</h1>
 
