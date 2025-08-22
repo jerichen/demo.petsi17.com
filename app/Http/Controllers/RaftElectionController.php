@@ -127,10 +127,11 @@ class RaftElectionController extends Controller
 
         // 所有活著的 Follower 變成 Candidate
         $nodes = RaftNode::where('alive', true)->get();
+        $newTerm = RaftNode::max('term') + 1;
         foreach ($nodes as $node) {
             $node->update([
                 'state' => 'candidate',
-                'term' => $node->term + 1,
+                'term' => $newTerm,
                 'vote_for' => $node->id, // 先投自己一票
             ]);
             $logs[] = "Node {$node->id} 變成 Candidate，並投給自己 (term={$node->term})";
