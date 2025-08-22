@@ -8,7 +8,13 @@
 <body class="bg-gray-100 text-gray-900">
 
 <div class="max-w-6xl mx-auto py-10">
-    <h1 class="text-3xl font-bold mb-6">⚡ Raft Leader Election</h1>
+    <h1 class="text-3xl font-bold mb-6">Raft Leader Election</h1>
+
+    @if(session('status'))
+        <div class="bg-green-100 text-green-800 p-3 mb-4 rounded">
+            {{ session('status') }}
+        </div>
+    @endif
 
     {{-- 節點清單 --}}
     <div class="bg-white rounded-lg shadow mb-6">
@@ -34,11 +40,11 @@
                         <td class="border px-4 py-2">{{ $node->vote_for ?? '-' }}</td>
                         <td class="border px-4 py-2">
                             @if($node->state === 'leader')
-                                <span class="px-2 py-1 bg-green-500 text-white rounded">Leader</span>
+                                <span class="px-2 py-1 bg-green-100 rounded">Leader</span>
                             @elseif($node->state === 'candidate')
-                                <span class="px-2 py-1 bg-yellow-400 text-black rounded">Candidate</span>
+                                <span class="px-2 py-1 bg-yellow-100 rounded">Candidate</span>
                             @else
-                                <span class="px-2 py-1 bg-gray-400 text-white rounded">Follower</span>
+                                <span class="px-2 py-1 bg-blue-100 rounded">Follower</span>
                             @endif
                         </td>
                         <td class="border px-4 py-2">
@@ -59,22 +65,24 @@
     <div class="flex space-x-4 mb-6">
         <form method="POST" action="{{ route('raft.election.requestVote') }}">
             @csrf
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700">
-                🚀 發起選舉
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">
+                發起選舉
             </button>
         </form>
-
         <form method="POST" action="{{ route('raft.election.heartbeat') }}">
             @csrf
-            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700">
-                ❤️ 發送心跳
+            <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded">
+                發送心跳
             </button>
         </form>
-
+        <form action="{{ route('raft.election.kill') }}" method="POST">
+            @csrf
+            <button class="px-4 py-2 bg-yellow-500 text-white rounded">Kill Leader</button>
+        </form>
         <form method="POST" action="{{ route('raft.election.reset') }}">
             @csrf
-            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded shadow hover:bg-red-700">
-                🔄 重置系統
+            <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded">
+                Reset
             </button>
         </form>
     </div>

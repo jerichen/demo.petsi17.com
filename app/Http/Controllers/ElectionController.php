@@ -100,7 +100,7 @@ class ElectionController extends Controller
         $leader = Node::where('state', 'leader')->first();
 
         if (!$leader) {
-            return redirect()->route('nodes.index')->with('status', "⚠️ 系統目前沒有 Leader");
+            return redirect()->route('nodes.index')->with('status', "系統目前沒有 Leader");
         }
 
         // 標記 leader 掛掉
@@ -111,7 +111,7 @@ class ElectionController extends Controller
         ]);
 
         $logs = Session::get('logs', []);
-        $logs[] = "💀 Node {$leader->id} (zxid={$leader->zxid}) Leader 掛掉，系統暫時沒有 Leader";
+        $logs[] = "Node {$leader->id} (zxid={$leader->zxid}) Leader 掛掉，系統暫時沒有 Leader";
         Session::put('logs', $logs);
 
         return redirect()->route('nodes.index')->with('status', "Leader 已掛掉，等待重新選舉");

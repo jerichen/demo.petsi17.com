@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Node;
+use App\Models\RaftNode;
 use Illuminate\Support\Facades\Session;
 
 class RaftElectionController extends Controller
 {
     public function index()
     {
-        $nodes = Node::all();
+        $nodes = RaftNode::all();
         $logs = Session::get('logs', []);
         return view('raft.index', compact('nodes', 'logs'));
     }
@@ -17,7 +17,7 @@ class RaftElectionController extends Controller
     public function requestVote()
     {
         $term = now()->timestamp; // 用時間戳模擬 term
-        $nodes = Node::where('alive', true)->get();
+        $nodes = RaftNode::where('alive', true)->get();
 
         $logs = [];
         $logs[] = "🚀 Raft 新一輪選舉開始 (term={$term})";
@@ -72,12 +72,12 @@ class RaftElectionController extends Controller
 
     public function resetElection()
     {
-        Node::truncate();
+        RaftNode::truncate();
         $nodes = collect();
 
         // 建立 6 個節點
         for ($i = 1; $i <= 6; $i++) {
-            $nodes->push(Node::create([
+            $nodes->push(RaftNode::create([
                 'zxid' => rand(1, 100),
                 'term' => 0,
                 'vote_for' => null,
@@ -93,16 +93,80 @@ class RaftElectionController extends Controller
 
     public function sendHeartbeat()
     {
-        $leader = Node::where('state', 'leader')->first();
+        $leader = RaftNode::where('state', 'leader')->first();
 
         if (!$leader) {
             return redirect()->route('raft.nodes.index')->with('status', "⚠️ 沒有 Leader，無法發送心跳");
         }
 
         $logs = Session::get('logs', []);
-        $logs[] = "❤️ Leader Node {$leader->id} 發送心跳，Follower 保持同步 (term={$leader->term})";
+        $logs[] = "Leader Node {$leader->id} 發送心跳，Follower 保持同步 (term={$leader->term})";
         Session::put('logs', $logs);
 
         return redirect()->route('raft.nodes.index')->with('status', "Leader 發送心跳成功");
+    }
+
+    public function killLeader()
+    {
+        $leader = RaftNode::where('state', 'leader')->first();
+
+        if (!$leader) {
+            return redirect()->route('raft.nodes.index')
+                             ->with('status', "⚠️ 系統目前沒有 Leader");
+        }
+
+        // 標記 Leader 掛掉
+        $leader->update([
+            'state' => 'follower',  // Leader 掛掉後先變回 follower（或可用 dead 標記）
+            'alive' => false,
+            'vote_for' => null,
+        ]);
+
+        $logs = Session::get('logs', []);
+        $logs[] = "Node {$leader->id} Leader 掛掉，開始重新選舉";
+
+        // 所有活著的 Follower 變成 Candidate
+        $nodes = RaftNode::where('alive', true)->get();
+        foreach ($nodes as $node) {
+            $node->update([
+                'state' => 'candidate',
+                'term' => $node->term + 1,
+                'vote_for' => $node->id, // 先投自己一票
+            ]);
+            $logs[] = "Node {$node->id} 變成 Candidate，並投給自己 (term={$node->term})";
+        }
+
+        // 模擬選舉：找 zxid 最大者，如果一樣就比 ID
+        $winner = $nodes->sort(function ($a, $b) {
+            if ($a->zxid === $b->zxid) {
+                return $b->id <=> $a->id;
+            }
+            return $b->zxid <=> $a->zxid;
+        })->first();
+
+        $majority = intval($nodes->count() / 2) + 1;
+        $votes = 0;
+
+        foreach ($nodes as $node) {
+            if ($node->id != $winner->id) {
+                $logs[] = "Node {$node->id} 投票給 Node {$winner->id}";
+            }
+            $votes++;
+            $node->update([
+                'vote_for' => $winner->id,
+                'state' => $node->id == $winner->id ? 'leader' : 'follower',
+            ]);
+        }
+
+        if ($votes >= $majority) {
+            $logs[] = "🏆 Node {$winner->id} 當選為新 Leader (term={$winner->term}, 獲得 {$votes} 票)";
+        } else {
+            $logs[] = "⚠️ 沒有候選人取得過半票數，選舉失敗";
+        }
+
+        Session::put('logs', $logs);
+
+        return redirect()->route('raft.nodes.index')
+                         ->with('status', "Leader 已掛掉，系統重新選舉完成");
     }
 }
